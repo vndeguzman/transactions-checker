@@ -26,7 +26,7 @@ Use the returned `Location` with:
 - `POST /v1/reconciliations/{id}/retry`
 - `GET /metrics`
 
-The dependency-free implementation stores jobs and its queue in memory. For a
+The Express implementation stores jobs and its queue in memory. For a
 multi-instance production deployment, keep the service API but replace these
 with PostgreSQL plus a transactional outbox, private object storage, and a
 durable queue. Deploy the API and workers as separate managed container

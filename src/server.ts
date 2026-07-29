@@ -1,0 +1,44 @@
+import { timingSafeEqual } from "node:crypto";
+
+import { createReconciliationHttpServer } from "./reconciliation-http.js";
+import {
+  ReconciliationService,
+  type Permission,
+} from "./reconciliation-service.js";
+
+const apiToken = process.env.API_TOKEN;
+if (apiToken === undefined || apiToken.length < 16) {
+  throw new Error("API_TOKEN must contain at least 16 characters.");
+}
+
+const expectedAuthorization = Buffer.from(`Bearer ${apiToken}`);
+const tenantId = process.env.TENANT_ID ?? "local";
+const permissions: readonly Permission[] = [
+  "reconciliation.submit",
+  "reconciliation.read",
+  "reconciliation.retry",
+  "reconciliation.admin",
+];
+const service = new ReconciliationService({
+  logger: (event) => console.log(JSON.stringify(event)),
+});
+const server = createReconciliationHttpServer(service, async (authorization) => {
+  if (authorization === undefined) {
+    return undefined;
+  }
+  const supplied = Buffer.from(authorization);
+  if (
+    supplied.byteLength !== expectedAuthorization.byteLength ||
+    !timingSafeEqual(supplied, expectedAuthorization)
+  ) {
+    return undefined;
+  }
+  return { subject: "api-token", tenantId, permissions };
+});
+
+const portText = process.env.PORT ?? "3000";
+const port = Number.parseInt(portText, 10);
+if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+  throw new Error("PORT must be an integer from 1 to 65535.");
+}
+server.listen(port, () => console.log(`reconciliation service listening on ${port}`));

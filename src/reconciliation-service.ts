@@ -68,6 +68,23 @@ export type ReconciliationProcessor = (
   file: Uint8Array,
 ) => Promise<ReconciliationResult>;
 
+type Awaitable<T> = T | Promise<T>;
+
+export interface ReconciliationApi {
+  submit(
+    request: SubmitRequest,
+    principal: Principal,
+  ): Awaitable<Submission>;
+  getJob(id: string, principal: Principal): Awaitable<ReconciliationJob>;
+  getResult(id: string, principal: Principal): Awaitable<ReconciliationResult>;
+  retry(id: string, principal: Principal): Awaitable<ReconciliationJob>;
+  getMetrics(
+    principal: Principal,
+  ): Awaitable<
+    Readonly<Metrics & { queueDepth: number }>
+  >;
+}
+
 export type AuditEvent = Readonly<{
   event: string;
   jobId: string;
@@ -119,7 +136,7 @@ type IdempotencyRecord = Readonly<{
   jobId: string;
 }>;
 
-type Metrics = {
+export type Metrics = {
   submissions: number;
   duplicates: number;
   succeeded: number;
@@ -137,7 +154,7 @@ type Options = Readonly<{
   newId?: () => string;
 }>;
 
-async function defaultProcessor(
+export async function processReconciliationFile(
   file: Uint8Array,
 ): Promise<ReconciliationResult> {
   let parsed: unknown;
@@ -168,7 +185,7 @@ function requireText(value: string, field: string): string {
   return normalized;
 }
 
-export class ReconciliationService {
+export class ReconciliationService implements ReconciliationApi {
   readonly #jobs = new Map<string, JobRecord>();
   readonly #idempotency = new Map<string, IdempotencyRecord>();
   readonly #content = new Map<string, string>();
@@ -192,7 +209,7 @@ export class ReconciliationService {
   #pendingRetries = 0;
 
   constructor(options: Options = {}) {
-    this.#processor = options.processor ?? defaultProcessor;
+    this.#processor = options.processor ?? processReconciliationFile;
     this.#maxAttempts = options.maxAttempts ?? 3;
     this.#retryDelayMs = options.retryDelayMs ?? 100;
     this.#maxFileBytes = options.maxFileBytes ?? 5 * 1024 * 1024;

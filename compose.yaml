@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: reconciliation
+      POSTGRES_USER: reconciliation
+      POSTGRES_PASSWORD: reconciliation
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reconciliation -d reconciliation"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      API_TOKEN: local-development-token
+      DATABASE_URL: postgres://reconciliation:reconciliation@postgres:5432/reconciliation
+      TENANT_ID: local
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "3001:3000"
+
+volumes:
+  postgres-data:

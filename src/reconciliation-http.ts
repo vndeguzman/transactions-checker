@@ -10,9 +10,9 @@ import express, {
 } from "express";
 
 import {
-  ReconciliationService,
   ServiceError,
   type Principal,
+  type ReconciliationApi,
 } from "./reconciliation-service.js";
 
 export type Authenticator = (
@@ -54,7 +54,7 @@ function routeId(request: Request): string {
 }
 
 export function createReconciliationApp(
-  service: ReconciliationService,
+  service: ReconciliationApi,
   authenticate: Authenticator,
 ): Express {
   const app = express();
@@ -100,7 +100,7 @@ export function createReconciliationApp(
   app.post(
     "/v1/reconciliations",
     express.raw({ type: "application/json", limit: "6mb" }),
-    asyncRoute((request, response) => {
+    asyncRoute(async (request, response) => {
       const idempotencyKey = request.get("idempotency-key");
       if (idempotencyKey === undefined) {
         throw new ServiceError(
@@ -109,7 +109,7 @@ export function createReconciliationApp(
           "Idempotency-Key is required.",
         );
       }
-      const submission = service.submit(
+      const submission = await service.submit(
         {
           fileName: request.get("x-file-name") ?? "reconciliation.json",
           file: rawFile(request.body),
@@ -129,35 +129,37 @@ export function createReconciliationApp(
 
   app.get(
     "/v1/reconciliations/:id",
-    asyncRoute((request, response) => {
+    asyncRoute(async (request, response) => {
       response
         .status(200)
-        .json(service.getJob(routeId(request), principalFor(request)));
+        .json(await service.getJob(routeId(request), principalFor(request)));
     }),
   );
 
   app.get(
     "/v1/reconciliations/:id/result",
-    asyncRoute((request, response) => {
+    asyncRoute(async (request, response) => {
       response
         .status(200)
-        .json(service.getResult(routeId(request), principalFor(request)));
+        .json(await service.getResult(routeId(request), principalFor(request)));
     }),
   );
 
   app.post(
     "/v1/reconciliations/:id/retry",
-    asyncRoute((request, response) => {
+    asyncRoute(async (request, response) => {
       response
         .status(202)
-        .json(service.retry(routeId(request), principalFor(request)));
+        .json(await service.retry(routeId(request), principalFor(request)));
     }),
   );
 
   app.get(
     "/metrics",
-    asyncRoute((request, response) => {
-      response.status(200).json(service.getMetrics(principalFor(request)));
+    asyncRoute(async (request, response) => {
+      response
+        .status(200)
+        .json(await service.getMetrics(principalFor(request)));
     }),
   );
 
@@ -193,7 +195,7 @@ export function createReconciliationApp(
 }
 
 export function createReconciliationHttpServer(
-  service: ReconciliationService,
+  service: ReconciliationApi,
   authenticate: Authenticator,
 ) {
   return createServer(createReconciliationApp(service, authenticate));

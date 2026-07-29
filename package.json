@@ -3,6 +3,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.2",
+    "@types/pg": "^8.20.0",
     "typescript": "^7.0.2"
   },
   "scripts": {
@@ -12,6 +13,7 @@
   },
   "dependencies": {
     "dayjs": "^1.11.21",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.22.0"
   }
 }
